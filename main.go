@@ -132,7 +132,7 @@ func processUpdate(storage *Storage, bot *tgbotapi.BotAPI, update *tgbotapi.Upda
 
 		newSheetID := uuid.New().String()
 
-		err := storage.insertNewSheet(chatID, newSheetID, chatStatus.newSheetName, password)
+		err := storage.InsertNewSheet(chatID, newSheetID, chatStatus.newSheetName, password)
 		if err != nil {
 			sendErrorMessage(bot, chatID)
 			return
@@ -162,7 +162,7 @@ func processUpdate(storage *Storage, bot *tgbotapi.BotAPI, update *tgbotapi.Upda
 
 		chatStatus.stage = None
 
-		if storage.checkPassword(chatStatus.connectToSheetID, password) {
+		if storage.CheckPassword(chatStatus.connectToSheetID, password) {
 			chatStatus.sheetID = &chatStatus.connectToSheetID
 			msg := tgbotapi.NewMessage(chatID, "Successfully connected to the sheet")
 			bot.Send(msg)
@@ -197,7 +197,7 @@ func processUpdate(storage *Storage, bot *tgbotapi.BotAPI, update *tgbotapi.Upda
 		chatStatus.stage = None
 
 		newCategoryID := uuid.New().String()
-		err := storage.insertNewCategory(*chatStatus.sheetID, newCategoryID, name)
+		err := storage.InsertNewCategory(*chatStatus.sheetID, newCategoryID, name)
 		if err != nil {
 			sendErrorMessage(bot, chatID)
 			return
@@ -214,7 +214,7 @@ func processUpdate(storage *Storage, bot *tgbotapi.BotAPI, update *tgbotapi.Upda
 		amount, _ := strconv.ParseFloat(matches[0][1], 64)
 		categoryName := matches[0][3]
 
-		categoryID, err := storage.findCategory(chatStatus.sheetID, categoryName)
+		categoryID, err := storage.FindCategory(chatStatus.sheetID, categoryName)
 		if err != nil {
 			sendErrorMessage(bot, chatID)
 			return
@@ -226,7 +226,7 @@ func processUpdate(storage *Storage, bot *tgbotapi.BotAPI, update *tgbotapi.Upda
 		}
 
 		newPaymentID := uuid.New().String()
-		err = storage.insertNewPayment(chatStatus.sheetID, categoryID, newPaymentID, int64(amount*100), categoryName)
+		err = storage.InsertNewPayment(chatStatus.sheetID, categoryID, newPaymentID, int64(amount*100), categoryName)
 		if err != nil {
 			sendErrorMessage(bot, chatID)
 			return
@@ -270,7 +270,7 @@ func getChatStatus(storage *Storage, chatID int64) (*ChatStatus, error) {
 		return status, nil
 	}
 
-	currentSheetID, err := storage.fetchCurrentSheetFromDB(chatID)
+	currentSheetID, err := storage.FetchCurrentSheetFromDB(chatID)
 	if err != nil {
 		return nil, err
 	}
