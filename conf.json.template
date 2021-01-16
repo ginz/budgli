@@ -1,0 +1,5 @@
+{
+    "SQLConnection": "budgli:budgli@tcp(localhost:3306)/budgli",
+    "TelegramBotKey": "your:telegrambot:key",
+    "Debug": true
+}
