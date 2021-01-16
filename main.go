@@ -26,7 +26,7 @@ func main() {
 		log.Panic(err)
 	}
 
-	db, err := initDb(conf)
+	storage, err := initStorage(conf)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -43,7 +43,7 @@ func main() {
 	updates, err := bot.GetUpdatesChan(u)
 
 	for update := range updates {
-		processUpdate(db, bot, &update)
+		processUpdate(storage, bot, &update)
 	}
 }
 
@@ -73,7 +73,7 @@ const (
 
 var chatStatuses = make(map[int64]*ChatStatus)
 
-func processUpdate(db *sql.DB, bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
+func processUpdate(storage *Storage, bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 	if update.Message == nil {
 		return
 	}
@@ -82,7 +82,7 @@ func processUpdate(db *sql.DB, bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 
 	chatID := update.Message.Chat.ID
 
-	chatStatus, err := getChatStatus(db, chatID)
+	chatStatus, err := getChatStatus(storage, chatID)
 	if err != nil {
 		sendErrorMessage(bot, chatID)
 		return
@@ -132,7 +132,7 @@ func processUpdate(db *sql.DB, bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 
 		newSheetID := uuid.New().String()
 
-		err := insertNewSheet(db, chatID, newSheetID, chatStatus.newSheetName, password)
+		err := storage.insertNewSheet(chatID, newSheetID, chatStatus.newSheetName, password)
 		if err != nil {
 			sendErrorMessage(bot, chatID)
 			return
@@ -162,7 +162,7 @@ func processUpdate(db *sql.DB, bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 
 		chatStatus.stage = None
 
-		if checkPassword(db, chatStatus.connectToSheetID, password) {
+		if storage.checkPassword(chatStatus.connectToSheetID, password) {
 			chatStatus.sheetID = &chatStatus.connectToSheetID
 			msg := tgbotapi.NewMessage(chatID, "Successfully connected to the sheet")
 			bot.Send(msg)
@@ -197,7 +197,7 @@ func processUpdate(db *sql.DB, bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 		chatStatus.stage = None
 
 		newCategoryID := uuid.New().String()
-		err := insertNewCategory(db, *chatStatus.sheetID, newCategoryID, name)
+		err := storage.insertNewCategory(*chatStatus.sheetID, newCategoryID, name)
 		if err != nil {
 			sendErrorMessage(bot, chatID)
 			return
@@ -214,7 +214,7 @@ func processUpdate(db *sql.DB, bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 		amount, _ := strconv.ParseFloat(matches[0][1], 64)
 		categoryName := matches[0][3]
 
-		categoryID, err := findCategory(db, chatStatus.sheetID, categoryName)
+		categoryID, err := storage.findCategory(chatStatus.sheetID, categoryName)
 		if err != nil {
 			sendErrorMessage(bot, chatID)
 			return
@@ -226,7 +226,7 @@ func processUpdate(db *sql.DB, bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 		}
 
 		newPaymentID := uuid.New().String()
-		err = insertNewPayment(db, chatStatus.sheetID, categoryID, newPaymentID, int64(amount*100), categoryName)
+		err = storage.insertNewPayment(chatStatus.sheetID, categoryID, newPaymentID, int64(amount*100), categoryName)
 		if err != nil {
 			sendErrorMessage(bot, chatID)
 			return
@@ -239,52 +239,6 @@ func processUpdate(db *sql.DB, bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 
 	msg := tgbotapi.NewMessage(chatID, "Failed to parse")
 	bot.Send(msg)
-}
-
-func insertNewPayment(db *sql.DB, sheetID *string, categoryID string, id string, amount int64, comment string) error {
-	_, err := db.Exec("INSERT INTO `payment` (`payment_id`, `sheet_id`, `category_id`, `amount`, `comment`) VALUES (?, ?, ?, ?, ?)",
-		id, sheetID, categoryID, amount, comment)
-	return err
-}
-
-func findCategory(db *sql.DB, sheetID *string, categoryName string) (string, error) {
-	var categoryID string
-
-	err := db.QueryRow("SELECT `category_id` FROM `category` WHERE `sheet_id` = ? AND `name` = ?", sheetID, categoryName).
-		Scan(&categoryID)
-	if err == sql.ErrNoRows {
-		err = nil
-	}
-
-	return categoryID, err
-}
-
-func insertNewCategory(db *sql.DB, sheetID string, id string, name string) error {
-	_, err := db.Exec("INSERT INTO `category` (`category_id`, `sheet_id`, `name`) VALUES (?, ?, ?)", id, sheetID, name)
-	return err
-}
-
-func checkPassword(db *sql.DB, sheetID string, password string) bool {
-	var unused int
-
-	err := db.QueryRow("SELECT 1 FROM `sheet` WHERE `sheet_id` = ? AND `password` = PASSWORD(?)", sheetID, password).Scan(&unused)
-
-	return err == nil
-}
-
-func insertNewSheet(db *sql.DB, chatID int64, id string, name string, password string) error {
-	_, err := db.Exec("INSERT INTO `sheet` (`sheet_id`, `owner_chat_id`, `name`, `password`) VALUES (?, ?, ?, PASSWORD(?))",
-		id, chatID, name, password)
-	if err != nil {
-		return err
-	}
-
-	_, err = db.Exec("INSERT INTO `current_sheet` (`chat_id`, `sheet_id`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `sheet_id` = ?", chatID, id, id)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func validateNewSheetPassword(password string) string {
@@ -311,18 +265,12 @@ func validateNewSheetName(name string) string {
 	return ""
 }
 
-func sendErrorMessage(bot *tgbotapi.BotAPI, chatID int64) {
-	msg := tgbotapi.NewMessage(chatID, "Uexpected server error")
-
-	bot.Send(msg)
-}
-
-func getChatStatus(db *sql.DB, chatID int64) (*ChatStatus, error) {
+func getChatStatus(storage *Storage, chatID int64) (*ChatStatus, error) {
 	if status, ok := chatStatuses[chatID]; ok {
 		return status, nil
 	}
 
-	currentSheetID, err := fetchCurrentSheetFromDB(db, chatID)
+	currentSheetID, err := storage.fetchCurrentSheetFromDB(chatID)
 	if err != nil {
 		return nil, err
 	}
@@ -332,20 +280,10 @@ func getChatStatus(db *sql.DB, chatID int64) (*ChatStatus, error) {
 	return status, nil
 }
 
-func fetchCurrentSheetFromDB(db *sql.DB, chatID int64) (*string, error) {
-	var currentSheet string
+func sendErrorMessage(bot *tgbotapi.BotAPI, chatID int64) {
+	msg := tgbotapi.NewMessage(chatID, "Uexpected server error")
 
-	err := db.QueryRow("SELECT `sheet_id` FROM `current_sheet` WHERE `chat_id` = ?", chatID).Scan(&currentSheet)
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-
-		return nil, err
-	} else {
-		return &currentSheet, nil
-	}
+	bot.Send(msg)
 }
 
 type Conf struct {
@@ -369,11 +307,11 @@ func readConfiguration() (*Conf, error) {
 	return &conf, nil
 }
 
-func initDb(conf *Conf) (*sql.DB, error) {
+func initStorage(conf *Conf) (*Storage, error) {
 	db, err := sql.Open("mysql", conf.SQLConnection)
 	if err != nil {
 		return nil, err
 	}
 
-	return db, nil
+	return &Storage{db: db}, nil
 }
