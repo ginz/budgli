@@ -10,6 +10,11 @@ import (
 	"github.com/google/uuid"
 )
 
+type Handler struct {
+	storage *Storage
+	bot     *tgbotapi.BotAPI
+}
+
 type ChatStatus struct {
 	stage   ChatStage
 	sheetID *string
@@ -36,7 +41,7 @@ const (
 
 var chatStatuses = make(map[int64]*ChatStatus)
 
-func processUpdate(storage *Storage, bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
+func (h *Handler) processUpdate(update *tgbotapi.Update) {
 	if update.Message == nil {
 		return
 	}
@@ -45,9 +50,9 @@ func processUpdate(storage *Storage, bot *tgbotapi.BotAPI, update *tgbotapi.Upda
 
 	chatID := update.Message.Chat.ID
 
-	chatStatus, err := getChatStatus(storage, chatID)
+	chatStatus, err := h.getChatStatus(chatID)
 	if err != nil {
-		sendErrorMessage(bot, chatID)
+		h.sendErrorMessage(chatID)
 		return
 	}
 
@@ -55,7 +60,7 @@ func processUpdate(storage *Storage, bot *tgbotapi.BotAPI, update *tgbotapi.Upda
 		chatStatus.stage = CreateSheetInputName
 
 		msg := tgbotapi.NewMessage(chatID, "Create and enter a name for the new sheet")
-		bot.Send(msg)
+		h.bot.Send(msg)
 		return
 	}
 
@@ -63,7 +68,7 @@ func processUpdate(storage *Storage, bot *tgbotapi.BotAPI, update *tgbotapi.Upda
 		chatStatus.stage = ConnectToSheetInputID
 
 		msg := tgbotapi.NewMessage(chatID, "Please enter sheet ID (it is shown when a sheet is created)")
-		bot.Send(msg)
+		h.bot.Send(msg)
 		return
 	}
 
@@ -72,7 +77,7 @@ func processUpdate(storage *Storage, bot *tgbotapi.BotAPI, update *tgbotapi.Upda
 
 		if errMsg := validateNewSheetName(name); errMsg != "" {
 			msg := tgbotapi.NewMessage(chatID, errMsg)
-			bot.Send(msg)
+			h.bot.Send(msg)
 			return
 		}
 
@@ -80,7 +85,7 @@ func processUpdate(storage *Storage, bot *tgbotapi.BotAPI, update *tgbotapi.Upda
 		chatStatus.stage = CreateSheetInputPassword
 
 		msg := tgbotapi.NewMessage(chatID, "Please enter new sheet password")
-		bot.Send(msg)
+		h.bot.Send(msg)
 		return
 	}
 
@@ -89,15 +94,15 @@ func processUpdate(storage *Storage, bot *tgbotapi.BotAPI, update *tgbotapi.Upda
 
 		if errMsg := validateNewSheetPassword(password); errMsg != "" {
 			msg := tgbotapi.NewMessage(chatID, errMsg)
-			bot.Send(msg)
+			h.bot.Send(msg)
 			return
 		}
 
 		newSheetID := uuid.New().String()
 
-		err := storage.InsertNewSheet(chatID, newSheetID, chatStatus.newSheetName, password)
+		err := h.storage.InsertNewSheet(chatID, newSheetID, chatStatus.newSheetName, password)
 		if err != nil {
-			sendErrorMessage(bot, chatID)
+			h.sendErrorMessage(chatID)
 			return
 		}
 
@@ -105,7 +110,7 @@ func processUpdate(storage *Storage, bot *tgbotapi.BotAPI, update *tgbotapi.Upda
 		chatStatus.stage = None
 
 		msg := tgbotapi.NewMessage(chatID, "New sheet is created!")
-		bot.Send(msg)
+		h.bot.Send(msg)
 		return
 	}
 
@@ -116,7 +121,7 @@ func processUpdate(storage *Storage, bot *tgbotapi.BotAPI, update *tgbotapi.Upda
 		chatStatus.stage = ConnectToSheetInputPassword
 
 		msg := tgbotapi.NewMessage(chatID, "Please enter sheet password")
-		bot.Send(msg)
+		h.bot.Send(msg)
 		return
 	}
 
@@ -125,15 +130,15 @@ func processUpdate(storage *Storage, bot *tgbotapi.BotAPI, update *tgbotapi.Upda
 
 		chatStatus.stage = None
 
-		if storage.CheckPassword(chatStatus.connectToSheetID, password) {
+		if h.storage.CheckPassword(chatStatus.connectToSheetID, password) {
 			chatStatus.sheetID = &chatStatus.connectToSheetID
 			msg := tgbotapi.NewMessage(chatID, "Successfully connected to the sheet")
-			bot.Send(msg)
+			h.bot.Send(msg)
 			return
 		}
 
 		msg := tgbotapi.NewMessage(chatID, "Incorrect password, please try again")
-		bot.Send(msg)
+		h.bot.Send(msg)
 		return
 	}
 
@@ -141,7 +146,7 @@ func processUpdate(storage *Storage, bot *tgbotapi.BotAPI, update *tgbotapi.Upda
 		msg := tgbotapi.NewMessage(chatID, "You are not yet connected to a sheet. Please either create a new one or connect to an existing one.\n"+
 			"/createSheet /connectSheet")
 
-		bot.Send(msg)
+		h.bot.Send(msg)
 		return
 	}
 
@@ -150,7 +155,7 @@ func processUpdate(storage *Storage, bot *tgbotapi.BotAPI, update *tgbotapi.Upda
 
 		msg := tgbotapi.NewMessage(chatID, "Please enter new category name")
 
-		bot.Send(msg)
+		h.bot.Send(msg)
 		return
 	}
 
@@ -160,14 +165,14 @@ func processUpdate(storage *Storage, bot *tgbotapi.BotAPI, update *tgbotapi.Upda
 		chatStatus.stage = None
 
 		newCategoryID := uuid.New().String()
-		err := storage.InsertNewCategory(*chatStatus.sheetID, newCategoryID, name)
+		err := h.storage.InsertNewCategory(*chatStatus.sheetID, newCategoryID, name)
 		if err != nil {
-			sendErrorMessage(bot, chatID)
+			h.sendErrorMessage(chatID)
 			return
 		}
 
 		msg := tgbotapi.NewMessage(chatID, "New category is created!")
-		bot.Send(msg)
+		h.bot.Send(msg)
 		return
 	}
 
@@ -177,31 +182,31 @@ func processUpdate(storage *Storage, bot *tgbotapi.BotAPI, update *tgbotapi.Upda
 		amount, _ := strconv.ParseFloat(matches[0][1], 64)
 		categoryName := matches[0][3]
 
-		categoryID, err := storage.FindCategory(chatStatus.sheetID, categoryName)
+		categoryID, err := h.storage.FindCategory(chatStatus.sheetID, categoryName)
 		if err != nil {
-			sendErrorMessage(bot, chatID)
+			h.sendErrorMessage(chatID)
 			return
 		}
 		if len(categoryID) == 0 {
 			msg := tgbotapi.NewMessage(chatID, "Could not find category with this name")
-			bot.Send(msg)
+			h.bot.Send(msg)
 			return
 		}
 
 		newPaymentID := uuid.New().String()
-		err = storage.InsertNewPayment(chatStatus.sheetID, categoryID, newPaymentID, int64(amount*100), categoryName)
+		err = h.storage.InsertNewPayment(chatStatus.sheetID, categoryID, newPaymentID, int64(amount*100), categoryName)
 		if err != nil {
-			sendErrorMessage(bot, chatID)
+			h.sendErrorMessage(chatID)
 			return
 		}
 
 		msg := tgbotapi.NewMessage(chatID, "Successfully created payment record")
-		bot.Send(msg)
+		h.bot.Send(msg)
 		return
 	}
 
 	msg := tgbotapi.NewMessage(chatID, "Failed to parse")
-	bot.Send(msg)
+	h.bot.Send(msg)
 }
 
 func validateNewSheetPassword(password string) string {
@@ -228,12 +233,12 @@ func validateNewSheetName(name string) string {
 	return ""
 }
 
-func getChatStatus(storage *Storage, chatID int64) (*ChatStatus, error) {
+func (h *Handler) getChatStatus(chatID int64) (*ChatStatus, error) {
 	if status, ok := chatStatuses[chatID]; ok {
 		return status, nil
 	}
 
-	currentSheetID, err := storage.FetchCurrentSheetFromDB(chatID)
+	currentSheetID, err := h.storage.FetchCurrentSheetFromDB(chatID)
 	if err != nil {
 		return nil, err
 	}
@@ -243,8 +248,8 @@ func getChatStatus(storage *Storage, chatID int64) (*ChatStatus, error) {
 	return status, nil
 }
 
-func sendErrorMessage(bot *tgbotapi.BotAPI, chatID int64) {
+func (h *Handler) sendErrorMessage(chatID int64) {
 	msg := tgbotapi.NewMessage(chatID, "Uexpected server error")
 
-	bot.Send(msg)
+	h.bot.Send(msg)
 }
