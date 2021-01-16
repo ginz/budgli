@@ -39,9 +39,7 @@ const (
 	CreateCategoryInputName
 )
 
-var chatStatuses = make(map[int64]*ChatStatus)
-
-func (h *Handler) processUpdate(update *tgbotapi.Update) {
+func (h *Handler) ProcessUpdate(update *tgbotapi.Update) {
 	if update.Message == nil {
 		return
 	}
@@ -232,6 +230,8 @@ func validateNewSheetName(name string) string {
 
 	return ""
 }
+
+var chatStatuses = make(map[int64]*ChatStatus)
 
 func (h *Handler) getChatStatus(chatID int64) (*ChatStatus, error) {
 	if status, ok := chatStatuses[chatID]; ok {

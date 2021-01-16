@@ -39,7 +39,7 @@ func main() {
 
 	handler := Handler{storage: storage, bot: bot}
 	for update := range updates {
-		handler.processUpdate(&update)
+		handler.ProcessUpdate(&update)
 	}
 }
 
