@@ -94,3 +94,26 @@ func (s *Storage) DisconnectFromSheet(chatID int64) error {
 
 	return err
 }
+
+type Sheet struct {
+	id   string
+	name string
+}
+
+func (s *Storage) ListSheets(chatID int64) ([]Sheet, error) {
+	rows, err := s.db.Query("SELECT `sheet_id`, `name` FROM `sheet` WHERE `owner_chat_id` = ?", chatID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sheets []Sheet
+	for rows.Next() {
+		var sheet Sheet
+		if err := rows.Scan(&sheet.id, &sheet.name); err != nil {
+			return nil, err
+		}
+		sheets = append(sheets, sheet)
+	}
+	return sheets, nil
+}

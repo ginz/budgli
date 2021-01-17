@@ -15,6 +15,8 @@ const (
 	MESSAGE_INCORRECT_NEW_SHEET_NAME_SLASH     = "Sheet name shouldn't start with /"
 	MESSAGE_INCORRECT_NEW_SHEET_NAME_TOO_SHORT = "Sheet name should be at least 3 characters long"
 	MESSAGE_SUCCESS_DISCONNECT_SHEET           = "Successfully disconnected from the sheet"
+	MESSAGE_LIST_SHEETS_INTRO                  = "Your user owns the following %d sheets:"
+	MESSAGE_LIST_SHEETS_OUTRO                  = "To add new sheets (if you have one, you are very unlikely to need more), click /createSheet"
 
 	MESSAGE_FAILURE_UNKNOWN_CATEGORY_NAME = "Could not find category with this name"
 	MESAGE_SUCCESS_CREATE_PAYMENT         = "Successfully created payment record"
@@ -22,7 +24,6 @@ const (
 
 	MESSAGE_INPUT_CATEGORY_NAME     = "Please enter new category name"
 	MESSAGE_SUCCESS_CREATE_CATEGORY = "New category is created!"
-
-	MESSAGE_LIST_CATEGORIES_INTRO = "This sheet has the following %d categories:\n"
-	MESSAGE_LIST_CATEGORIES_OUTRO = "To add new categories, click /createCategory"
+	MESSAGE_LIST_CATEGORIES_INTRO   = "This sheet has the following %d categories:"
+	MESSAGE_LIST_CATEGORIES_OUTRO   = "To add new categories, click /createCategory"
 )

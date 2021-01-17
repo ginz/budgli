@@ -43,10 +43,11 @@ func getCategorySubhandlers(h *Handler) []Subhandler {
 
 				var reply strings.Builder
 				fmt.Fprintf(&reply, MESSAGE_LIST_CATEGORIES_INTRO, len(categories))
-				for _, category := range categories {
-					reply.WriteString(category)
-					reply.WriteString("\n")
+				reply.WriteString("\n\n")
+				for i, category := range categories {
+					fmt.Fprintf(&reply, "%2d. %s\n", i+1, category)
 				}
+				reply.WriteString("\n\n")
 				reply.WriteString(MESSAGE_LIST_CATEGORIES_OUTRO)
 
 				return reply.String()

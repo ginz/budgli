@@ -91,12 +91,35 @@ func getSheetSubhandlers(h *Handler) []Subhandler {
 			sheetOptional: true,
 			handle: func(text string, chatStatus *ChatStatus) string {
 				chatStatus.sheetID = nil
+				chatStatus.stage = None
 
 				if err := h.storage.DisconnectFromSheet(chatStatus.chatID); err != nil {
 					return MESSAGE_UNEXPECTED_SERVER_ERROR
 				}
 
 				return MESSAGE_SUCCESS_DISCONNECT_SHEET
+			},
+		},
+		Subhandler{
+			expectedText:  "/listSheets",
+			sheetOptional: true,
+			handle: func(text string, chatStatus *ChatStatus) string {
+				chatStatus.stage = None
+
+				sheets, err := h.storage.ListSheets(chatStatus.chatID)
+				if err != nil {
+					return MESSAGE_UNEXPECTED_SERVER_ERROR
+				}
+
+				var reply strings.Builder
+				fmt.Fprintf(&reply, MESSAGE_LIST_SHEETS_INTRO, len(sheets))
+				reply.WriteString("\n\n")
+				for i, sheet := range sheets {
+					fmt.Fprintf(&reply, "%2d. Name: %s\n    ID: %s\n\n", i+1, sheet.name, sheet.id)
+				}
+				reply.WriteString("\n\n")
+				reply.WriteString(MESSAGE_LIST_SHEETS_OUTRO)
+				return reply.String()
 			},
 		},
 	}
