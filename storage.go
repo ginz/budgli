@@ -32,6 +32,24 @@ func (s *Storage) InsertNewCategory(sheetID string, id string, name string) erro
 	return err
 }
 
+func (s *Storage) ListCategories(sheetID string) ([]string, error) {
+	rows, err := s.db.Query("SELECT `name` FROM `category` WHERE `sheet_id` = ?", sheetID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var categories []string
+	for rows.Next() {
+		var category string
+		if err := rows.Scan(&category); err != nil {
+			return nil, err
+		}
+		categories = append(categories, category)
+	}
+	return categories, nil
+}
+
 func (s *Storage) CheckPassword(sheetID string, password string) bool {
 	var unused int
 

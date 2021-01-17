@@ -22,4 +22,7 @@ const (
 
 	MESSAGE_INPUT_CATEGORY_NAME     = "Please enter new category name"
 	MESSAGE_SUCCESS_CREATE_CATEGORY = "New category is created!"
+
+	MESSAGE_LIST_CATEGORIES_INTRO = "This sheet has the following %d categories:\n"
+	MESSAGE_LIST_CATEGORIES_OUTRO = "To add new categories, click /createCategory"
 )

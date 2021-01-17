@@ -1,6 +1,11 @@
 package main
 
-import "github.com/google/uuid"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/google/uuid"
+)
 
 func getCategorySubhandlers(h *Handler) []Subhandler {
 	return []Subhandler{
@@ -24,6 +29,27 @@ func getCategorySubhandlers(h *Handler) []Subhandler {
 				}
 
 				return MESSAGE_SUCCESS_CREATE_CATEGORY
+			},
+		},
+		Subhandler{
+			expectedText: "/listCategories",
+			handle: func(text string, chatStatus *ChatStatus) string {
+				chatStatus.stage = None
+
+				categories, err := h.storage.ListCategories(*chatStatus.sheetID)
+				if err != nil {
+					return MESSAGE_UNEXPECTED_SERVER_ERROR
+				}
+
+				var reply strings.Builder
+				fmt.Fprintf(&reply, MESSAGE_LIST_CATEGORIES_INTRO, len(categories))
+				for _, category := range categories {
+					reply.WriteString(category)
+					reply.WriteString("\n")
+				}
+				reply.WriteString(MESSAGE_LIST_CATEGORIES_OUTRO)
+
+				return reply.String()
 			},
 		},
 	}
