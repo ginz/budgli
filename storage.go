@@ -2,15 +2,16 @@ package main
 
 import (
 	"database/sql"
+	"time"
 )
 
 type Storage struct {
 	db *sql.DB
 }
 
-func (s *Storage) InsertNewPayment(sheetID *string, categoryID string, id string, amount int64, comment string) error {
-	_, err := s.db.Exec("INSERT INTO `payment` (`payment_id`, `sheet_id`, `category_id`, `amount`, `comment`) VALUES (?, ?, ?, ?, ?)",
-		id, sheetID, categoryID, amount, comment)
+func (s *Storage) InsertNewPayment(sheetID *string, categoryID string, id string, amount int64, comment string, time time.Time) error {
+	_, err := s.db.Exec("INSERT INTO `payment` (`payment_id`, `sheet_id`, `category_id`, `amount`, `comment`, `payment_made_time`) VALUES (?, ?, ?, ?, ?, ?)",
+		id, sheetID, categoryID, amount, comment, time)
 	return err
 }
 

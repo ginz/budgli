@@ -3,6 +3,7 @@ package main
 import (
 	"regexp"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -24,7 +25,7 @@ func getDefaultSubhandler(h *Handler) Subhandler {
 				}
 
 				newPaymentID := uuid.New().String()
-				err = h.storage.InsertNewPayment(chatStatus.sheetID, categoryID, newPaymentID, int64(amount*100), categoryName)
+				err = h.storage.InsertNewPayment(chatStatus.sheetID, categoryID, newPaymentID, int64(amount*100), categoryName, time.Now())
 				if err != nil {
 					return serverErrorMessage
 				}

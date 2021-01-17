@@ -31,6 +31,7 @@ CREATE TABLE `payment` (
   `category_id` varchar(36) NOT NULL,
   `amount` bigint(20) NOT NULL,
   `comment` varchar(100) DEFAULT NULL,
+  `payment_made_time` datetime NOT NULL,
   PRIMARY KEY (`payment_id`),
   KEY `payment_sheet_id_IDX` (`sheet_id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
