@@ -9,7 +9,7 @@ func getCategorySubhandlers(h *Handler) []Subhandler {
 			handle: func(text string, chatStatus *ChatStatus) string {
 				chatStatus.stage = CreateCategoryInputName
 
-				return "Please enter new category name"
+				return MESSAGE_INPUT_CATEGORY_NAME
 			},
 		},
 		Subhandler{
@@ -20,10 +20,10 @@ func getCategorySubhandlers(h *Handler) []Subhandler {
 				newCategoryID := uuid.New().String()
 				err := h.storage.InsertNewCategory(*chatStatus.sheetID, newCategoryID, name)
 				if err != nil {
-					return serverErrorMessage
+					return MESSAGE_UNEXPECTED_SERVER_ERROR
 				}
 
-				return "New category is created!"
+				return MESSAGE_SUCCESS_CREATE_CATEGORY
 			},
 		},
 	}

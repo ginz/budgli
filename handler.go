@@ -83,7 +83,7 @@ func (h *Handler) ProcessUpdate(update *tgbotapi.Update) {
 func (h *Handler) replyToMessage(chatID int64, text string) string {
 	chatStatus, err := h.getChatStatus(chatID)
 	if err != nil {
-		return serverErrorMessage
+		return MESSAGE_UNEXPECTED_SERVER_ERROR
 	}
 
 	var sh Subhandler
@@ -121,8 +121,6 @@ func (h *Handler) getChatStatus(chatID int64) (*ChatStatus, error) {
 	chatStatuses[chatID] = status
 	return status, nil
 }
-
-const serverErrorMessage = "Unexpected server error"
 
 type Subhandler struct {
 	expectedText  string

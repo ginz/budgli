@@ -14,7 +14,7 @@ func getSheetSubhandlers(h *Handler) []Subhandler {
 			handle: func(text string, chatStatus *ChatStatus) string {
 				chatStatus.stage = CreateSheetInputName
 
-				return "Create and enter a name for the new sheet"
+				return MESSAGE_INPUT_NEW_SHEET_NAME
 			},
 		},
 		Subhandler{
@@ -28,7 +28,7 @@ func getSheetSubhandlers(h *Handler) []Subhandler {
 				chatStatus.newSheetName = name
 				chatStatus.stage = CreateSheetInputPassword
 
-				return "Please enter new sheet password"
+				return MESSAGE_INPUT_NEW_SHEET_PASSWORD
 			},
 		},
 		Subhandler{
@@ -43,13 +43,13 @@ func getSheetSubhandlers(h *Handler) []Subhandler {
 
 				err := h.storage.InsertNewSheet(chatStatus.chatID, newSheetID, chatStatus.newSheetName, password)
 				if err != nil {
-					return serverErrorMessage
+					return MESSAGE_UNEXPECTED_SERVER_ERROR
 				}
 
 				chatStatus.sheetID = &newSheetID
 				chatStatus.stage = None
 
-				return "New sheet is created!"
+				return MESSAGE_CREATED_NEW_SHEET
 			},
 		},
 		Subhandler{
@@ -58,7 +58,7 @@ func getSheetSubhandlers(h *Handler) []Subhandler {
 			handle: func(text string, chatStatus *ChatStatus) string {
 				chatStatus.stage = ConnectToSheetInputID
 
-				return "Please enter sheet ID (it is shown when a sheet is created)"
+				return MESSAGE_INPUT_SHEET_ID
 			},
 		},
 		Subhandler{
@@ -68,7 +68,7 @@ func getSheetSubhandlers(h *Handler) []Subhandler {
 				chatStatus.connectToSheetID = connectToSheetID
 				chatStatus.stage = ConnectToSheetInputPassword
 
-				return "Please enter sheet password"
+				return MESSAGE_INPUT_SHEET_PASSWORD
 			},
 		},
 		Subhandler{
@@ -79,10 +79,10 @@ func getSheetSubhandlers(h *Handler) []Subhandler {
 
 				if h.storage.CheckPassword(chatStatus.connectToSheetID, password) {
 					chatStatus.sheetID = &chatStatus.connectToSheetID
-					return "Successfully connected to the sheet"
+					return MESSAGE_SUCCESS_CONNECT_TO_SHEET
 				}
 
-				return "Incorrect password, please try again"
+				return MESSAGE_INCORRECT_PASSWORD
 			},
 		},
 	}
@@ -90,11 +90,11 @@ func getSheetSubhandlers(h *Handler) []Subhandler {
 
 func validateNewSheetPassword(password string) string {
 	if strings.HasPrefix(password, "/") {
-		return "Sheet password shouldn't start with /"
+		return MESSAGE_INCORRECT_NEW_PASSWORD_SLASH
 	}
 
 	if len(password) < 3 {
-		return "Sheet password should be at least 3 characters long"
+		return MESSAGE_INCORRECT_NEW_PASSWORD_TOO_SHORT
 	}
 
 	return ""
@@ -102,11 +102,11 @@ func validateNewSheetPassword(password string) string {
 
 func validateNewSheetName(name string) string {
 	if strings.HasPrefix(name, "/") {
-		return "Sheet name shouldn't start with /"
+		return MESSAGE_INCORRECT_NEW_SHEET_NAME_SLASH
 	}
 
 	if len(name) < 3 {
-		return "Sheet name should be at least 3 characters long"
+		return MESSAGE_INCORRECT_NEW_SHEET_NAME_TOO_SHORT
 	}
 
 	return ""

@@ -18,22 +18,22 @@ func getDefaultSubhandler(h *Handler) Subhandler {
 
 				categoryID, err := h.storage.FindCategory(chatStatus.sheetID, categoryName)
 				if err != nil {
-					return serverErrorMessage
+					return MESSAGE_UNEXPECTED_SERVER_ERROR
 				}
 				if len(categoryID) == 0 {
-					return "Could not find category with this name"
+					return MESSAGE_FAILURE_UNKNOWN_CATEGORY_NAME
 				}
 
 				newPaymentID := uuid.New().String()
 				err = h.storage.InsertNewPayment(chatStatus.sheetID, categoryID, newPaymentID, int64(amount*100), categoryName, time.Now())
 				if err != nil {
-					return serverErrorMessage
+					return MESSAGE_UNEXPECTED_SERVER_ERROR
 				}
 
-				return "Successfully created payment record"
+				return MESAGE_SUCCESS_CREATE_PAYMENT
 			}
 
-			return "Failed to parse"
+			return MESSAGE_FAILURE_PARSING
 		},
 	}
 }
