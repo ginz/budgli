@@ -37,7 +37,7 @@ func main() {
 
 	updates, err := bot.GetUpdatesChan(u)
 
-	handler := Handler{storage: storage, bot: bot}
+	handler := CreateHandler(storage, bot)
 	for update := range updates {
 		handler.ProcessUpdate(&update)
 	}

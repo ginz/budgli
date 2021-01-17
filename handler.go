@@ -13,9 +13,15 @@ import (
 type Handler struct {
 	storage *Storage
 	bot     *tgbotapi.BotAPI
+
+	subhandlersByText  map[string]Subhandler
+	subhandlersByStage map[ChatStage]Subhandler
+	defaultSubhandler  Subhandler
 }
 
 type ChatStatus struct {
+	chatID int64
+
 	stage   ChatStage
 	sheetID *string
 
@@ -39,6 +45,158 @@ const (
 	CreateCategoryInputName
 )
 
+func CreateHandler(storage *Storage, bot *tgbotapi.BotAPI) *Handler {
+	h := Handler{storage: storage, bot: bot}
+
+	subhandlers := []Subhandler{
+		Subhandler{
+			expectedText:  "/createSheet",
+			sheetOptional: true,
+			handle: func(text string, chatStatus *ChatStatus) string {
+				chatStatus.stage = CreateSheetInputName
+
+				return "Create and enter a name for the new sheet"
+			},
+		},
+		Subhandler{
+			expectedStage: CreateSheetInputName,
+			sheetOptional: true,
+			handle: func(name string, chatStatus *ChatStatus) string {
+				if errMsg := validateNewSheetName(name); errMsg != "" {
+					return errMsg
+				}
+
+				chatStatus.newSheetName = name
+				chatStatus.stage = CreateSheetInputPassword
+
+				return "Please enter new sheet password"
+			},
+		},
+		Subhandler{
+			expectedStage: CreateSheetInputPassword,
+			sheetOptional: true,
+			handle: func(password string, chatStatus *ChatStatus) string {
+				if errMsg := validateNewSheetPassword(password); errMsg != "" {
+					return errMsg
+				}
+
+				newSheetID := uuid.New().String()
+
+				err := h.storage.InsertNewSheet(chatStatus.chatID, newSheetID, chatStatus.newSheetName, password)
+				if err != nil {
+					return serverErrorMessage
+				}
+
+				chatStatus.sheetID = &newSheetID
+				chatStatus.stage = None
+
+				return "New sheet is created!"
+			},
+		},
+		Subhandler{
+			expectedText:  "/connectSheet",
+			sheetOptional: true,
+			handle: func(text string, chatStatus *ChatStatus) string {
+				chatStatus.stage = ConnectToSheetInputID
+
+				return "Please enter sheet ID (it is shown when a sheet is created)"
+			},
+		},
+		Subhandler{
+			expectedStage: ConnectToSheetInputID,
+			sheetOptional: true,
+			handle: func(connectToSheetID string, chatStatus *ChatStatus) string {
+				chatStatus.connectToSheetID = connectToSheetID
+				chatStatus.stage = ConnectToSheetInputPassword
+
+				return "Please enter sheet password"
+			},
+		},
+		Subhandler{
+			expectedStage: ConnectToSheetInputPassword,
+			sheetOptional: true,
+			handle: func(password string, chatStatus *ChatStatus) string {
+				chatStatus.stage = None
+
+				if h.storage.CheckPassword(chatStatus.connectToSheetID, password) {
+					chatStatus.sheetID = &chatStatus.connectToSheetID
+					return "Successfully connected to the sheet"
+				}
+
+				return "Incorrect password, please try again"
+			},
+		},
+		Subhandler{
+			expectedText: "/createCategory",
+			handle: func(text string, chatStatus *ChatStatus) string {
+				chatStatus.stage = CreateCategoryInputName
+
+				return "Please enter new category name"
+			},
+		},
+		Subhandler{
+			expectedStage: CreateCategoryInputName,
+			handle: func(name string, chatStatus *ChatStatus) string {
+				chatStatus.stage = None
+
+				newCategoryID := uuid.New().String()
+				err := h.storage.InsertNewCategory(*chatStatus.sheetID, newCategoryID, name)
+				if err != nil {
+					return serverErrorMessage
+				}
+
+				return "New category is created!"
+			},
+		},
+		// default subhandler
+		Subhandler{
+			handle: func(text string, chatStatus *ChatStatus) string {
+				re := regexp.MustCompile(`^(-?\d+(\.\d+)?)\s(.*)$`)
+				if matches := re.FindAllStringSubmatch(text, 1); matches != nil {
+					amount, _ := strconv.ParseFloat(matches[0][1], 64)
+					categoryName := matches[0][3]
+
+					categoryID, err := h.storage.FindCategory(chatStatus.sheetID, categoryName)
+					if err != nil {
+						return serverErrorMessage
+					}
+					if len(categoryID) == 0 {
+						return "Could not find category with this name"
+					}
+
+					newPaymentID := uuid.New().String()
+					err = h.storage.InsertNewPayment(chatStatus.sheetID, categoryID, newPaymentID, int64(amount*100), categoryName)
+					if err != nil {
+						return serverErrorMessage
+					}
+
+					return "Successfully created payment record"
+				}
+
+				return "Failed to parse"
+			},
+		},
+	}
+	h.subhandlersByText = make(map[string]Subhandler)
+	h.subhandlersByStage = make(map[ChatStage]Subhandler)
+	defaultSubhandlerDefined := false
+	for _, subhandler := range subhandlers {
+		normalizedExpectedText := normalizeText(subhandler.expectedText)
+		if normalizedExpectedText != "" {
+			h.subhandlersByText[normalizedExpectedText] = subhandler
+		} else if subhandler.expectedStage != None {
+			h.subhandlersByStage[subhandler.expectedStage] = subhandler
+		} else {
+			h.defaultSubhandler = subhandler
+			defaultSubhandlerDefined = true
+		}
+	}
+	if !defaultSubhandlerDefined {
+		log.Panic("Default subhandler should always be defined")
+	}
+	return &h
+}
+
 func (h *Handler) ProcessUpdate(update *tgbotapi.Update) {
 	if update.Message == nil {
 		return
@@ -48,163 +206,29 @@ func (h *Handler) ProcessUpdate(update *tgbotapi.Update) {
 
 	chatID := update.Message.Chat.ID
 
+	replyText := h.replyToMessage(chatID, update.Message.Text)
+	h.bot.Send(tgbotapi.NewMessage(chatID, replyText))
+}
+
+func (h *Handler) replyToMessage(chatID int64, text string) string {
 	chatStatus, err := h.getChatStatus(chatID)
 	if err != nil {
-		h.sendErrorMessage(chatID)
-		return
+		return serverErrorMessage
 	}
 
-	if update.Message.Text == "/createSheet" {
-		chatStatus.stage = CreateSheetInputName
-
-		msg := tgbotapi.NewMessage(chatID, "Create and enter a name for the new sheet")
-		h.bot.Send(msg)
-		return
-	}
-
-	if update.Message.Text == "/connectSheet" {
-		chatStatus.stage = ConnectToSheetInputID
-
-		msg := tgbotapi.NewMessage(chatID, "Please enter sheet ID (it is shown when a sheet is created)")
-		h.bot.Send(msg)
-		return
-	}
-
-	if chatStatus.stage == CreateSheetInputName {
-		name := update.Message.Text
-
-		if errMsg := validateNewSheetName(name); errMsg != "" {
-			msg := tgbotapi.NewMessage(chatID, errMsg)
-			h.bot.Send(msg)
-			return
+	var sh Subhandler
+	sh, ok := h.subhandlersByText[normalizeText(text)]
+	if !ok {
+		sh, ok = h.subhandlersByStage[chatStatus.stage]
+		if !ok {
+			sh = h.defaultSubhandler
 		}
-
-		chatStatus.newSheetName = name
-		chatStatus.stage = CreateSheetInputPassword
-
-		msg := tgbotapi.NewMessage(chatID, "Please enter new sheet password")
-		h.bot.Send(msg)
-		return
 	}
-
-	if chatStatus.stage == CreateSheetInputPassword {
-		password := update.Message.Text
-
-		if errMsg := validateNewSheetPassword(password); errMsg != "" {
-			msg := tgbotapi.NewMessage(chatID, errMsg)
-			h.bot.Send(msg)
-			return
-		}
-
-		newSheetID := uuid.New().String()
-
-		err := h.storage.InsertNewSheet(chatID, newSheetID, chatStatus.newSheetName, password)
-		if err != nil {
-			h.sendErrorMessage(chatID)
-			return
-		}
-
-		chatStatus.sheetID = &newSheetID
-		chatStatus.stage = None
-
-		msg := tgbotapi.NewMessage(chatID, "New sheet is created!")
-		h.bot.Send(msg)
-		return
+	if !sh.sheetOptional && chatStatus.sheetID == nil {
+		return "You are not yet connected to a sheet. Please either create a new one or connect to an existing one.\n" +
+			"/createSheet /connectSheet"
 	}
-
-	if chatStatus.stage == ConnectToSheetInputID {
-		connectToSheetID := update.Message.Text
-
-		chatStatus.connectToSheetID = connectToSheetID
-		chatStatus.stage = ConnectToSheetInputPassword
-
-		msg := tgbotapi.NewMessage(chatID, "Please enter sheet password")
-		h.bot.Send(msg)
-		return
-	}
-
-	if chatStatus.stage == ConnectToSheetInputPassword {
-		password := update.Message.Text
-
-		chatStatus.stage = None
-
-		if h.storage.CheckPassword(chatStatus.connectToSheetID, password) {
-			chatStatus.sheetID = &chatStatus.connectToSheetID
-			msg := tgbotapi.NewMessage(chatID, "Successfully connected to the sheet")
-			h.bot.Send(msg)
-			return
-		}
-
-		msg := tgbotapi.NewMessage(chatID, "Incorrect password, please try again")
-		h.bot.Send(msg)
-		return
-	}
-
-	if chatStatus.sheetID == nil {
-		msg := tgbotapi.NewMessage(chatID, "You are not yet connected to a sheet. Please either create a new one or connect to an existing one.\n"+
-			"/createSheet /connectSheet")
-
-		h.bot.Send(msg)
-		return
-	}
-
-	if update.Message.Text == "/createCategory" {
-		chatStatus.stage = CreateCategoryInputName
-
-		msg := tgbotapi.NewMessage(chatID, "Please enter new category name")
-
-		h.bot.Send(msg)
-		return
-	}
-
-	if chatStatus.stage == CreateCategoryInputName {
-		name := update.Message.Text
-
-		chatStatus.stage = None
-
-		newCategoryID := uuid.New().String()
-		err := h.storage.InsertNewCategory(*chatStatus.sheetID, newCategoryID, name)
-		if err != nil {
-			h.sendErrorMessage(chatID)
-			return
-		}
-
-		msg := tgbotapi.NewMessage(chatID, "New category is created!")
-		h.bot.Send(msg)
-		return
-	}
-
-	// TODO: compile once
-	re := regexp.MustCompile(`^(-?\d+(\.\d+)?)\s(.*)$`)
-	if matches := re.FindAllStringSubmatch(update.Message.Text, 1); matches != nil {
-		amount, _ := strconv.ParseFloat(matches[0][1], 64)
-		categoryName := matches[0][3]
-
-		categoryID, err := h.storage.FindCategory(chatStatus.sheetID, categoryName)
-		if err != nil {
-			h.sendErrorMessage(chatID)
-			return
-		}
-		if len(categoryID) == 0 {
-			msg := tgbotapi.NewMessage(chatID, "Could not find category with this name")
-			h.bot.Send(msg)
-			return
-		}
-
-		newPaymentID := uuid.New().String()
-		err = h.storage.InsertNewPayment(chatStatus.sheetID, categoryID, newPaymentID, int64(amount*100), categoryName)
-		if err != nil {
-			h.sendErrorMessage(chatID)
-			return
-		}
-
-		msg := tgbotapi.NewMessage(chatID, "Successfully created payment record")
-		h.bot.Send(msg)
-		return
-	}
-
-	msg := tgbotapi.NewMessage(chatID, "Failed to parse")
-	h.bot.Send(msg)
+	return sh.handle(text, chatStatus)
 }
 
 func validateNewSheetPassword(password string) string {
@@ -231,6 +255,10 @@ func validateNewSheetName(name string) string {
 	return ""
 }
 
+func normalizeText(text string) string {
+	return strings.TrimSpace(strings.ToLower(text))
+}
+
 var chatStatuses = make(map[int64]*ChatStatus)
 
 func (h *Handler) getChatStatus(chatID int64) (*ChatStatus, error) {
@@ -243,13 +271,18 @@ func (h *Handler) getChatStatus(chatID int64) (*ChatStatus, error) {
 		return nil, err
 	}
 
-	status := &ChatStatus{sheetID: currentSheetID}
+	status := &ChatStatus{chatID: chatID, sheetID: currentSheetID}
 	chatStatuses[chatID] = status
 	return status, nil
 }
 
-func (h *Handler) sendErrorMessage(chatID int64) {
-	msg := tgbotapi.NewMessage(chatID, "Uexpected server error")
+const serverErrorMessage = "Unexpected server error"
 
-	h.bot.Send(msg)
+type Subhandler struct {
+	expectedText  string
+	expectedStage ChatStage
+
+	sheetOptional bool
+
+	handle func(text string, status *ChatStatus) string
 }
