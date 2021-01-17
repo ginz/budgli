@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
@@ -49,7 +50,7 @@ func getSheetSubhandlers(h *Handler) []Subhandler {
 				chatStatus.sheetID = &newSheetID
 				chatStatus.stage = None
 
-				return MESSAGE_CREATED_NEW_SHEET
+				return fmt.Sprintf(MESSAGE_CREATED_NEW_SHEET, chatStatus.newSheetName, newSheetID)
 			},
 		},
 		Subhandler{
