@@ -1,5 +1,7 @@
 CREATE DATABASE `budgli` /*!40100 DEFAULT CHARACTER SET utf8mb4 */;
 
+USE `budgli`;
+
 -- budgli.current_sheet definition
 
 CREATE TABLE `current_sheet` (
