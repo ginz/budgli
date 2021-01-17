@@ -86,6 +86,19 @@ func getSheetSubhandlers(h *Handler) []Subhandler {
 				return MESSAGE_INCORRECT_PASSWORD
 			},
 		},
+		Subhandler{
+			expectedText:  "/disconnectSheet",
+			sheetOptional: true,
+			handle: func(text string, chatStatus *ChatStatus) string {
+				chatStatus.sheetID = nil
+
+				if err := h.storage.DisconnectFromSheet(chatStatus.chatID); err != nil {
+					return MESSAGE_UNEXPECTED_SERVER_ERROR
+				}
+
+				return MESSAGE_SUCCESS_DISCONNECT_SHEET
+			},
+		},
 	}
 }
 

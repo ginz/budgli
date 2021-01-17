@@ -70,3 +70,9 @@ func (s *Storage) FetchCurrentSheetFromDB(chatID int64) (*string, error) {
 		return &currentSheet, nil
 	}
 }
+
+func (s *Storage) DisconnectFromSheet(chatID int64) error {
+	_, err := s.db.Exec("DELETE FROM `current_sheet` WHERE `chat_id` = ?", chatID)
+
+	return err
+}

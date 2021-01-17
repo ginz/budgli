@@ -14,6 +14,7 @@ const (
 	MESSAGE_INCORRECT_NEW_PASSWORD_TOO_SHORT   = "Sheet password should be at least 3 characters long"
 	MESSAGE_INCORRECT_NEW_SHEET_NAME_SLASH     = "Sheet name shouldn't start with /"
 	MESSAGE_INCORRECT_NEW_SHEET_NAME_TOO_SHORT = "Sheet name should be at least 3 characters long"
+	MESSAGE_SUCCESS_DISCONNECT_SHEET           = "Successfully disconnected from the sheet"
 
 	MESSAGE_FAILURE_UNKNOWN_CATEGORY_NAME = "Could not find category with this name"
 	MESAGE_SUCCESS_CREATE_PAYMENT         = "Successfully created payment record"
