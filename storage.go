@@ -61,16 +61,12 @@ func (s *Storage) CheckPassword(sheetID string, password string) bool {
 func (s *Storage) InsertNewSheet(chatID int64, id string, name string, password string) error {
 	_, err := s.db.Exec("INSERT INTO `sheet` (`sheet_id`, `owner_chat_id`, `name`, `password`) VALUES (?, ?, ?, PASSWORD(?))",
 		id, chatID, name, password)
-	if err != nil {
-		return err
-	}
+	return err
+}
 
-	_, err = s.db.Exec("INSERT INTO `current_sheet` (`chat_id`, `sheet_id`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `sheet_id` = ?", chatID, id, id)
-	if err != nil {
-		return err
-	}
-
-	return nil
+func (s *Storage) ConnectToSheet(chatID int64, sheetID string) error {
+	_, err := s.db.Exec("INSERT INTO `current_sheet` (`chat_id`, `sheet_id`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `sheet_id` = ?", chatID, sheetID, sheetID)
+	return err
 }
 
 func (s *Storage) FetchCurrentSheetFromDB(chatID int64) (*string, error) {

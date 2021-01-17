@@ -47,6 +47,11 @@ func getSheetSubhandlers(h *Handler) []Subhandler {
 					return MESSAGE_UNEXPECTED_SERVER_ERROR
 				}
 
+				err = h.storage.ConnectToSheet(chatStatus.chatID, newSheetID)
+				if err != nil {
+					return MESSAGE_UNEXPECTED_SERVER_ERROR
+				}
+
 				chatStatus.sheetID = &newSheetID
 				chatStatus.stage = None
 
@@ -79,6 +84,11 @@ func getSheetSubhandlers(h *Handler) []Subhandler {
 				chatStatus.stage = None
 
 				if h.storage.CheckPassword(chatStatus.connectToSheetID, password) {
+					err := h.storage.ConnectToSheet(chatStatus.chatID, chatStatus.connectToSheetID)
+					if err != nil {
+						return MESSAGE_UNEXPECTED_SERVER_ERROR
+					}
+
 					chatStatus.sheetID = &chatStatus.connectToSheetID
 					return MESSAGE_SUCCESS_CONNECT_TO_SHEET
 				}
