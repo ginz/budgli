@@ -42,6 +42,10 @@ const (
 	CreateCategoryInputName
 )
 
+type ReplyExtras struct {
+	ReplyOptions []string
+}
+
 func CreateHandler(storage *Storage, bot *tgbotapi.BotAPI) *Handler {
 	h := Handler{storage: storage, bot: bot}
 
@@ -76,14 +80,25 @@ func (h *Handler) ProcessUpdate(update *tgbotapi.Update) {
 
 	chatID := update.Message.Chat.ID
 
-	replyText := h.replyToMessage(chatID, update.Message.Text)
-	h.bot.Send(tgbotapi.NewMessage(chatID, replyText))
+	replyText, replyExtras := h.replyToMessage(chatID, update.Message.Text)
+	msg := tgbotapi.NewMessage(chatID, replyText)
+
+	if replyExtras == nil || len(replyExtras.ReplyOptions) == 0 {
+		msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+	} else {
+		rows := make([][]tgbotapi.KeyboardButton, len(replyExtras.ReplyOptions))
+		for i, replyOption := range replyExtras.ReplyOptions {
+			rows[i] = tgbotapi.NewKeyboardButtonRow(tgbotapi.NewKeyboardButton(replyOption))
+		}
+		msg.ReplyMarkup = tgbotapi.NewReplyKeyboard(rows...)
+	}
+	h.bot.Send(msg)
 }
 
-func (h *Handler) replyToMessage(chatID int64, text string) string {
+func (h *Handler) replyToMessage(chatID int64, text string) (string, *ReplyExtras) {
 	chatStatus, err := h.getChatStatus(chatID)
 	if err != nil {
-		return MESSAGE_UNEXPECTED_SERVER_ERROR
+		return MESSAGE_UNEXPECTED_SERVER_ERROR, nil
 	}
 
 	var sh Subhandler
@@ -96,9 +111,11 @@ func (h *Handler) replyToMessage(chatID int64, text string) string {
 	}
 	if !sh.sheetOptional && chatStatus.sheetID == nil {
 		return "You are not yet connected to a sheet. Please either create a new one or connect to an existing one.\n" +
-			"/createSheet /connectSheet"
+			"/createSheet /connectSheet", nil
 	}
-	return sh.handle(text, chatStatus)
+
+	var replyExtras ReplyExtras
+	return sh.handle(text, chatStatus, &replyExtras), &replyExtras
 }
 
 func normalizeText(text string) string {
@@ -128,5 +145,5 @@ type Subhandler struct {
 
 	sheetOptional bool
 
-	handle func(text string, status *ChatStatus) string
+	handle func(text string, status *ChatStatus, replyExtras *ReplyExtras) string
 }

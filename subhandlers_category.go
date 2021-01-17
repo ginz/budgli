@@ -11,7 +11,7 @@ func getCategorySubhandlers(h *Handler) []Subhandler {
 	return []Subhandler{
 		Subhandler{
 			expectedText: "/createCategory",
-			handle: func(text string, chatStatus *ChatStatus) string {
+			handle: func(text string, chatStatus *ChatStatus, _ *ReplyExtras) string {
 				chatStatus.stage = CreateCategoryInputName
 
 				return MESSAGE_INPUT_CATEGORY_NAME
@@ -19,7 +19,7 @@ func getCategorySubhandlers(h *Handler) []Subhandler {
 		},
 		Subhandler{
 			expectedStage: CreateCategoryInputName,
-			handle: func(name string, chatStatus *ChatStatus) string {
+			handle: func(name string, chatStatus *ChatStatus, _ *ReplyExtras) string {
 				chatStatus.stage = None
 
 				newCategoryID := uuid.New().String()
@@ -33,7 +33,7 @@ func getCategorySubhandlers(h *Handler) []Subhandler {
 		},
 		Subhandler{
 			expectedText: "/listCategories",
-			handle: func(text string, chatStatus *ChatStatus) string {
+			handle: func(text string, chatStatus *ChatStatus, _ *ReplyExtras) string {
 				chatStatus.stage = None
 
 				categories, err := h.storage.ListCategories(*chatStatus.sheetID)

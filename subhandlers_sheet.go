@@ -12,7 +12,7 @@ func getSheetSubhandlers(h *Handler) []Subhandler {
 		Subhandler{
 			expectedText:  "/createSheet",
 			sheetOptional: true,
-			handle: func(text string, chatStatus *ChatStatus) string {
+			handle: func(text string, chatStatus *ChatStatus, _ *ReplyExtras) string {
 				chatStatus.stage = CreateSheetInputName
 
 				return MESSAGE_INPUT_NEW_SHEET_NAME
@@ -21,7 +21,7 @@ func getSheetSubhandlers(h *Handler) []Subhandler {
 		Subhandler{
 			expectedStage: CreateSheetInputName,
 			sheetOptional: true,
-			handle: func(name string, chatStatus *ChatStatus) string {
+			handle: func(name string, chatStatus *ChatStatus, _ *ReplyExtras) string {
 				if errMsg := validateNewSheetName(name); errMsg != "" {
 					return errMsg
 				}
@@ -35,7 +35,7 @@ func getSheetSubhandlers(h *Handler) []Subhandler {
 		Subhandler{
 			expectedStage: CreateSheetInputPassword,
 			sheetOptional: true,
-			handle: func(password string, chatStatus *ChatStatus) string {
+			handle: func(password string, chatStatus *ChatStatus, _ *ReplyExtras) string {
 				if errMsg := validateNewSheetPassword(password); errMsg != "" {
 					return errMsg
 				}
@@ -61,7 +61,17 @@ func getSheetSubhandlers(h *Handler) []Subhandler {
 		Subhandler{
 			expectedText:  "/connectSheet",
 			sheetOptional: true,
-			handle: func(text string, chatStatus *ChatStatus) string {
+			handle: func(text string, chatStatus *ChatStatus, replyExtras *ReplyExtras) string {
+				sheets, err := h.storage.ListSheets(chatStatus.chatID)
+				if err != nil {
+					return MESSAGE_UNEXPECTED_SERVER_ERROR
+				}
+				replyOptions := make([]string, len(sheets))
+				for i, sheet := range sheets {
+					replyOptions[i] = sheet.id + " (" + sheet.name + ")"
+				}
+				replyExtras.ReplyOptions = replyOptions
+
 				chatStatus.stage = ConnectToSheetInputID
 
 				return MESSAGE_INPUT_SHEET_ID
@@ -70,7 +80,17 @@ func getSheetSubhandlers(h *Handler) []Subhandler {
 		Subhandler{
 			expectedStage: ConnectToSheetInputID,
 			sheetOptional: true,
-			handle: func(connectToSheetID string, chatStatus *ChatStatus) string {
+			handle: func(connectToSheetID string, chatStatus *ChatStatus, _ *ReplyExtras) string {
+				connectToSheetID = strings.TrimSpace(connectToSheetID)
+				if len(connectToSheetID) == 0 {
+					return MESSAGE_INCORRECT_SHEET_ID_FORMAT
+				}
+				connectToSheetID = strings.ToLower(strings.Split(connectToSheetID, " ")[0])
+				_, err := uuid.Parse(connectToSheetID)
+				if err != nil {
+					return MESSAGE_INCORRECT_SHEET_ID_FORMAT
+				}
+
 				chatStatus.connectToSheetID = connectToSheetID
 				chatStatus.stage = ConnectToSheetInputPassword
 
@@ -80,7 +100,7 @@ func getSheetSubhandlers(h *Handler) []Subhandler {
 		Subhandler{
 			expectedStage: ConnectToSheetInputPassword,
 			sheetOptional: true,
-			handle: func(password string, chatStatus *ChatStatus) string {
+			handle: func(password string, chatStatus *ChatStatus, _ *ReplyExtras) string {
 				chatStatus.stage = None
 
 				if h.storage.CheckPassword(chatStatus.connectToSheetID, password) {
@@ -99,7 +119,7 @@ func getSheetSubhandlers(h *Handler) []Subhandler {
 		Subhandler{
 			expectedText:  "/disconnectSheet",
 			sheetOptional: true,
-			handle: func(text string, chatStatus *ChatStatus) string {
+			handle: func(text string, chatStatus *ChatStatus, _ *ReplyExtras) string {
 				chatStatus.sheetID = nil
 				chatStatus.stage = None
 
@@ -113,7 +133,7 @@ func getSheetSubhandlers(h *Handler) []Subhandler {
 		Subhandler{
 			expectedText:  "/listSheets",
 			sheetOptional: true,
-			handle: func(text string, chatStatus *ChatStatus) string {
+			handle: func(text string, chatStatus *ChatStatus, _ *ReplyExtras) string {
 				chatStatus.stage = None
 
 				sheets, err := h.storage.ListSheets(chatStatus.chatID)

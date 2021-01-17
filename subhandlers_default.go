@@ -10,7 +10,7 @@ import (
 
 func getDefaultSubhandler(h *Handler) Subhandler {
 	return Subhandler{
-		handle: func(text string, chatStatus *ChatStatus) string {
+		handle: func(text string, chatStatus *ChatStatus, _ *ReplyExtras) string {
 			re := regexp.MustCompile(`^(-?\d+(\.\d+)?)\s(.*)$`)
 			if matches := re.FindAllStringSubmatch(text, 1); matches != nil {
 				amount, _ := strconv.ParseFloat(matches[0][1], 64)
