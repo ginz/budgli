@@ -113,3 +113,13 @@ func (s *Storage) ListSheets(chatID int64) ([]Sheet, error) {
 	}
 	return sheets, nil
 }
+
+func (s *Storage) GetSheetOwnerChatID(sheetID string) (int64, error) {
+	var ownerChatID int64
+
+	if err := s.db.QueryRow("SELECT `owner_chat_id` FROM `sheet` WHERE `sheet_id` = ?", sheetID).Scan(&ownerChatID); err != nil {
+		return 0, err
+	}
+
+	return ownerChatID, nil
+}

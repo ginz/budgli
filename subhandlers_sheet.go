@@ -91,6 +91,12 @@ func getSheetSubhandlers(h *Handler) []Subhandler {
 					return MESSAGE_INCORRECT_SHEET_ID_FORMAT
 				}
 
+				// If the sheet belongs to the current chat, no need to ask for password
+				ownerChatID, err := h.storage.GetSheetOwnerChatID(connectToSheetID)
+				if err == nil && ownerChatID == chatStatus.chatID {
+					return updateCurrentSheet(h, chatStatus, connectToSheetID)
+				}
+
 				chatStatus.connectToSheetID = connectToSheetID
 				chatStatus.stage = ConnectToSheetInputPassword
 
@@ -104,13 +110,7 @@ func getSheetSubhandlers(h *Handler) []Subhandler {
 				chatStatus.stage = None
 
 				if h.storage.CheckPassword(chatStatus.connectToSheetID, password) {
-					err := h.storage.ConnectToSheet(chatStatus.chatID, chatStatus.connectToSheetID)
-					if err != nil {
-						return MESSAGE_UNEXPECTED_SERVER_ERROR
-					}
-
-					chatStatus.sheetID = &chatStatus.connectToSheetID
-					return MESSAGE_SUCCESS_CONNECT_TO_SHEET
+					return updateCurrentSheet(h, chatStatus, chatStatus.connectToSheetID)
 				}
 
 				return MESSAGE_INCORRECT_PASSWORD
@@ -153,6 +153,16 @@ func getSheetSubhandlers(h *Handler) []Subhandler {
 			},
 		},
 	}
+}
+
+func updateCurrentSheet(h *Handler, chatStatus *ChatStatus, sheetID string) string {
+	err := h.storage.ConnectToSheet(chatStatus.chatID, chatStatus.connectToSheetID)
+	if err != nil {
+		return MESSAGE_UNEXPECTED_SERVER_ERROR
+	}
+
+	chatStatus.sheetID = &sheetID
+	return MESSAGE_SUCCESS_CONNECT_TO_SHEET
 }
 
 func validateNewSheetPassword(password string) string {
