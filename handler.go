@@ -49,7 +49,10 @@ type ReplyExtras struct {
 func CreateHandler(storage *Storage, bot *tgbotapi.BotAPI) *Handler {
 	h := Handler{storage: storage, bot: bot}
 
-	subhandlers := append(getSheetSubhandlers(&h), getCategorySubhandlers(&h)...)
+	var subhandlers []Subhandler
+	subhandlers = append(subhandlers, getInfoSubhandlers(&h)...)
+	subhandlers = append(subhandlers, getSheetSubhandlers(&h)...)
+	subhandlers = append(subhandlers, getCategorySubhandlers(&h)...)
 	subhandlers = append(subhandlers, getDefaultSubhandler(&h))
 	h.subhandlersByText = make(map[string]Subhandler)
 	h.subhandlersByStage = make(map[ChatStage]Subhandler)
