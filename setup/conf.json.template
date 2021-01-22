@@ -1,0 +1,6 @@
+{
+    "__comment": "!!!This file has to be filled with the correct values and put in the root of the project with the name conf.json. This field can be removed!!!"
+    "SQLConnection": "budgli:budgli@tcp(localhost:3306)/budgli",
+    "TelegramBotKey": "your:telegrambot:key",
+    "Debug": true
+}
