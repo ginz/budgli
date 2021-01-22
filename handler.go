@@ -53,7 +53,7 @@ func CreateHandler(storage *Storage, bot *tgbotapi.BotAPI) *Handler {
 	subhandlers = append(subhandlers, getInfoSubhandlers(&h)...)
 	subhandlers = append(subhandlers, getSheetSubhandlers(&h)...)
 	subhandlers = append(subhandlers, getCategorySubhandlers(&h)...)
-	subhandlers = append(subhandlers, getDefaultSubhandler(&h))
+	subhandlers = append(subhandlers, getPaymentSubhandlers(&h)...)
 	h.subhandlersByText = make(map[string]Subhandler)
 	h.subhandlersByStage = make(map[ChatStage]Subhandler)
 	defaultSubhandlerDefined := false
