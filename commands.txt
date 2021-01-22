@@ -1,0 +1,9 @@
+This list of commands has to be copied and fed to @BotFather after sending /setcommands:
+
+help - Get help
+createcategory - Create a new category
+listcategories - List all categories in this sheet
+createsheet - Create a new sheet
+connectsheet - Connect to an existing sheet
+disconnectsheet - Disconnect from the current sheet
+listsheets - List all the sheets that belong to you
